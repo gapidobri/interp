@@ -43,11 +43,20 @@ const (
 	Identifier TokenType = "identifier"
 
 	// Keywords
-	If    TokenType = "if"
-	Else  TokenType = "else"
-	True  TokenType = "true"
-	False TokenType = "false"
-	Nil   TokenType = "nil"
+	If     TokenType = "if"
+	Else   TokenType = "else"
+	True   TokenType = "true"
+	False  TokenType = "false"
+	Nil    TokenType = "nil"
+	Class  TokenType = "class"
+	Fun    TokenType = "fun"
+	Var    TokenType = "var"
+	For    TokenType = "for"
+	While  TokenType = "while"
+	Print  TokenType = "print"
+	Return TokenType = "return"
+
+	EOF = "eof"
 )
 
 var keywords = map[string]TokenType{
@@ -63,8 +72,6 @@ type Token struct {
 	Lexeme  string
 	Literal *any
 	Line    int
-	Start   int
-	End     int
 }
 
 func (t Token) GetLiteral() any {
@@ -100,6 +107,8 @@ func (s *Scanner) scanTokens() []Token {
 		s.start = s.current
 		s.scanToken()
 	}
+
+	s.tokens = append(s.tokens, Token{Type: EOF, Line: s.line})
 
 	return s.tokens
 }
@@ -169,7 +178,7 @@ func (s *Scanner) scanToken() {
 		case s.isAlpha(c):
 			s.identifier()
 		default:
-			s.error(fmt.Sprintf("Unexpected character %c.", c))
+			errorLine(s.line, "Unexpected character.")
 		}
 	}
 }
@@ -178,17 +187,11 @@ func (s *Scanner) isAtEnd() bool {
 	return s.current >= len(s.source)
 }
 
-func (s *Scanner) error(err string) {
-	fmt.Printf("Error at %d:%d: %s\n", s.line, s.start+1, err)
-}
-
 func (s *Scanner) addToken(tokenType TokenType) {
 	s.tokens = append(s.tokens, Token{
 		Type:   tokenType,
 		Lexeme: s.source[s.start:s.current],
 		Line:   s.line,
-		Start:  s.start,
-		End:    s.current,
 	})
 }
 
@@ -198,8 +201,6 @@ func (s *Scanner) addTokenLiteral(tokenType TokenType, literal any) {
 		Literal: &literal,
 		Lexeme:  s.source[s.start:s.current],
 		Line:    s.line,
-		Start:   s.start,
-		End:     s.current,
 	})
 }
 
@@ -246,7 +247,7 @@ func (s *Scanner) string() {
 	}
 
 	if s.isAtEnd() {
-		s.error("Unterminated string.")
+		errorLine(s.line, "Unterminated string.")
 		return
 	}
 
@@ -282,7 +283,7 @@ func (s *Scanner) number() {
 
 	value, err := strconv.ParseFloat(s.source[s.start:s.current], 64)
 	if err != nil {
-		s.error("Failed to parse float")
+		errorLine(s.line, "Failed to parse float.")
 		return
 	}
 

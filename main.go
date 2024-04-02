@@ -17,7 +17,9 @@ func main() {
 
 	tokens := scanner.scanTokens()
 
-	for _, token := range tokens {
-		fmt.Printf("%+v\n", token)
-	}
+	parser := NewParser(tokens)
+	expression := parser.parse()
+
+	printer := AstPrinter{}
+	fmt.Println(printer.print(expression))
 }
