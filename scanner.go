@@ -67,6 +67,16 @@ var keywords = map[string]TokenType{
 	"nil":   Nil,
 }
 
+type ScanError struct {
+	line    int
+	where   string
+	message string
+}
+
+func (s ScanError) Error() string {
+	return fmt.Sprintf("[line %d] Error%s: %s\n", s.line, s.where, s.message)
+}
+
 type Token struct {
 	Type    TokenType
 	Lexeme  string
@@ -102,18 +112,21 @@ func NewScanner(source string) *Scanner {
 	}
 }
 
-func (s *Scanner) scanTokens() []Token {
+func (s *Scanner) scanTokens() ([]Token, error) {
 	for !s.isAtEnd() {
 		s.start = s.current
-		s.scanToken()
+		err := s.scanToken()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	s.tokens = append(s.tokens, Token{Type: EOF, Line: s.line})
 
-	return s.tokens
+	return s.tokens, nil
 }
 
-func (s *Scanner) scanToken() {
+func (s *Scanner) scanToken() error {
 	c := s.advance()
 	switch c {
 	case '(':
@@ -170,17 +183,18 @@ func (s *Scanner) scanToken() {
 	case '\n':
 		s.line++
 	case '"':
-		s.string()
+		return s.string()
 	default:
 		switch {
 		case s.isDigit(c):
-			s.number()
+			return s.number()
 		case s.isAlpha(c):
 			s.identifier()
 		default:
-			errorLine(s.line, "Unexpected character.")
+			return s.error(s.line, "Unexpected character.")
 		}
 	}
+	return nil
 }
 
 func (s *Scanner) isAtEnd() bool {
@@ -238,7 +252,7 @@ func (s *Scanner) peekNext() uint8 {
 	return s.source[s.current+1]
 }
 
-func (s *Scanner) string() {
+func (s *Scanner) string() error {
 	for s.peek() != '"' && !s.isAtEnd() {
 		if s.peek() == '\n' {
 			s.line++
@@ -247,14 +261,15 @@ func (s *Scanner) string() {
 	}
 
 	if s.isAtEnd() {
-		errorLine(s.line, "Unterminated string.")
-		return
+		return s.error(s.line, "Unterminated string.")
 	}
 
 	s.advance()
 
 	value := s.source[s.start+1 : s.current-1]
 	s.addTokenLiteral(String, value)
+
+	return nil
 }
 
 func (s *Scanner) isDigit(c uint8) bool {
@@ -269,7 +284,7 @@ func (s *Scanner) isAlphaNumeric(c uint8) bool {
 	return s.isAlpha(c) || s.isDigit(c)
 }
 
-func (s *Scanner) number() {
+func (s *Scanner) number() error {
 	for s.isDigit(s.peek()) {
 		s.advance()
 	}
@@ -283,11 +298,12 @@ func (s *Scanner) number() {
 
 	value, err := strconv.ParseFloat(s.source[s.start:s.current], 64)
 	if err != nil {
-		errorLine(s.line, "Failed to parse float.")
-		return
+		return s.error(s.line, "Failed to Parse float.")
 	}
 
 	s.addTokenLiteral(Number, value)
+
+	return nil
 }
 
 func (s *Scanner) identifier() {
@@ -302,4 +318,8 @@ func (s *Scanner) identifier() {
 	}
 
 	s.addToken(tokenType)
+}
+
+func (s *Scanner) error(line int, message string) ScanError {
+	return ScanError{line: line, message: message}
 }

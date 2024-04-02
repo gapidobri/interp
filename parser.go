@@ -2,19 +2,20 @@ package main
 
 import (
 	"fmt"
+	"github.com/samber/lo"
 )
 
 type ParseError struct {
-	Token   *Token
+	Token   Token
 	Message string
 }
 
-func newParseError(token *Token, message string) ParseError {
+func newParseError(token Token, message string) ParseError {
 	return ParseError{token, message}
 }
 
 func (p ParseError) Error() string {
-	return fmt.Sprintf("parse error at line %d: %s", p.Token.Line, p.Message)
+	return fmt.Sprintf("Parse error at line %d: %s", p.Token.Line, p.Message)
 }
 
 type Parser struct {
@@ -23,17 +24,15 @@ type Parser struct {
 }
 
 func NewParser(tokens []Token) Parser {
-	return Parser{
-		tokens: tokens,
-	}
+	return Parser{tokens: tokens}
 }
 
-func (p *Parser) parse() Expr {
+func (p *Parser) Parse() (Expr, error) {
 	expr, err := p.expression()
 	if err != nil {
-		return nil
+		return nil, err
 	}
-	return expr
+	return expr, nil
 }
 
 func (p *Parser) expression() (Expr, error) {
@@ -45,12 +44,14 @@ func (p *Parser) equality() (Expr, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	for p.match(BangEqual, EqualEqual) {
 		operator := p.previous()
 		right, err := p.comparison()
 		if err != nil {
 			return nil, err
 		}
+
 		expr = &Binary{expr, operator, right}
 	}
 	return expr, nil
@@ -73,7 +74,7 @@ func (p *Parser) check(t TokenType) bool {
 	return p.peek().Type == t
 }
 
-func (p *Parser) advance() *Token {
+func (p *Parser) advance() Token {
 	if !p.isAtEnd() {
 		p.current++
 	}
@@ -84,16 +85,15 @@ func (p *Parser) isAtEnd() bool {
 	return p.peek().Type == EOF
 }
 
-func (p *Parser) peek() *Token {
-	return &p.tokens[p.current]
+func (p *Parser) peek() Token {
+	return p.tokens[p.current]
 }
 
-func (p *Parser) previous() *Token {
-	return &p.tokens[p.current-1]
+func (p *Parser) previous() Token {
+	return p.tokens[p.current-1]
 }
 
-func (p *Parser) error(token *Token, message string) ParseError {
-	errorToken(token, message)
+func (p *Parser) error(token Token, message string) ParseError {
 	return ParseError{token, message}
 }
 
@@ -175,7 +175,7 @@ func (p *Parser) primary() (Expr, error) {
 	case p.match(Nil):
 		return Literal{nil}, nil
 	case p.match(Number, String):
-		return Literal{p.previous().Literal}, nil
+		return Literal{*p.previous().Literal}, nil
 	case p.match(LeftParen):
 		expr, err := p.expression()
 		if err != nil {
@@ -195,7 +195,7 @@ func (p *Parser) primary() (Expr, error) {
 
 func (p *Parser) consume(t TokenType, message string) (*Token, error) {
 	if p.check(t) {
-		return p.advance(), nil
+		return lo.ToPtr(p.advance()), nil
 	}
 	return nil, newParseError(p.peek(), message)
 }

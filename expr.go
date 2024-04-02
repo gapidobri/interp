@@ -1,23 +1,23 @@
 package main
 
 type Expr interface {
-	accept(Visitor) any
+	accept(Visitor) (any, error)
 }
 
 type Visitor interface {
-	visitBinaryExpr(*Binary) any
-	visitGroupingExpr(*Grouping) any
-	visitLiteralExpr(*Literal) any
-	visitUnaryExpr(*Unary) any
+	visitBinaryExpr(*Binary) (any, error)
+	visitGroupingExpr(*Grouping) (any, error)
+	visitLiteralExpr(*Literal) (any, error)
+	visitUnaryExpr(*Unary) (any, error)
 }
 
 type Binary struct {
 	Left     Expr
-	Operator *Token
+	Operator Token
 	Right    Expr
 }
 
-func (b Binary) accept(visitor Visitor) any {
+func (b Binary) accept(visitor Visitor) (any, error) {
 	return visitor.visitBinaryExpr(&b)
 }
 
@@ -25,7 +25,7 @@ type Grouping struct {
 	Expression Expr
 }
 
-func (g Grouping) accept(visitor Visitor) any {
+func (g Grouping) accept(visitor Visitor) (any, error) {
 	return visitor.visitGroupingExpr(&g)
 }
 
@@ -33,15 +33,15 @@ type Literal struct {
 	Value any
 }
 
-func (l Literal) accept(visitor Visitor) any {
+func (l Literal) accept(visitor Visitor) (any, error) {
 	return visitor.visitLiteralExpr(&l)
 }
 
 type Unary struct {
-	Operator *Token
+	Operator Token
 	Right    Expr
 }
 
-func (u Unary) accept(visitor Visitor) any {
+func (u Unary) accept(visitor Visitor) (any, error) {
 	return visitor.visitUnaryExpr(&u)
 }

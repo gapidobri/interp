@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"os"
 )
 
@@ -14,12 +13,20 @@ func main() {
 	}
 
 	scanner := NewScanner(string(bytes))
-
-	tokens := scanner.scanTokens()
+	tokens, err := scanner.scanTokens()
+	if err != nil {
+		panic(err)
+	}
 
 	parser := NewParser(tokens)
-	expression := parser.parse()
+	expression, err := parser.Parse()
+	if err != nil {
+		panic(err)
+	}
 
-	printer := AstPrinter{}
-	fmt.Println(printer.print(expression))
+	interpreter := NewInterpreter()
+	err = interpreter.Interpret(expression)
+	if err != nil {
+		panic(err)
+	}
 }
