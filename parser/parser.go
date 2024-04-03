@@ -3,6 +3,7 @@ package parser
 import (
 	"fmt"
 	"github.com/samber/lo"
+	"interp/errors"
 	"interp/expr"
 	"interp/stmt"
 	. "interp/token"
@@ -20,6 +21,7 @@ func (p ParseError) Error() string {
 type Parser struct {
 	tokens  []Token
 	current int
+	loops   int
 }
 
 func NewParser(tokens []Token) Parser {
@@ -49,6 +51,8 @@ func (p *Parser) declaration() (stmt.Stmt, error) {
 		err       error
 	)
 	switch {
+	case p.match(Fun):
+		statement, err = p.function("function")
 	case p.match(Var):
 		statement, err = p.varDeclaration()
 	default:
@@ -69,8 +73,12 @@ func (p *Parser) statement() (stmt.Stmt, error) {
 		return p.ifStatement()
 	case p.match(Print):
 		return p.printStatement()
+	case p.match(Return):
+		return p.returnStatement()
 	case p.match(While):
 		return p.whileStatement()
+	case p.match(Break):
+		return p.breakStatement()
 	case p.match(LeftBrace):
 		statements, err := p.block()
 		if err != nil {
@@ -83,6 +91,9 @@ func (p *Parser) statement() (stmt.Stmt, error) {
 }
 
 func (p *Parser) forStatement() (stmt.Stmt, error) {
+	p.incrementLoops()
+	defer p.decrementLoops()
+
 	_, err := p.consume(LeftParen, "Expect '(' after 'for'.")
 	if err != nil {
 		return nil, err
@@ -197,6 +208,25 @@ func (p *Parser) printStatement() (stmt.Stmt, error) {
 	return stmt.Print{Expression: value}, nil
 }
 
+func (p *Parser) returnStatement() (stmt.Stmt, error) {
+	keyword := p.previous()
+	var value expr.Expr
+	if !p.check(Semicolon) {
+		var err error
+		value, err = p.expression()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	_, err := p.consume(Semicolon, "Expect ';' after return value.")
+	if err != nil {
+		return nil, err
+	}
+
+	return stmt.Return{Keyword: keyword, Value: value}, nil
+}
+
 func (p *Parser) expressionStatement() (stmt.Stmt, error) {
 	exp, err := p.expression()
 	if err != nil {
@@ -209,6 +239,54 @@ func (p *Parser) expressionStatement() (stmt.Stmt, error) {
 	}
 
 	return stmt.Expression{Expression: exp}, nil
+}
+
+func (p *Parser) function(kind string) (*stmt.Function, error) {
+	name, err := p.consume(Identifier, fmt.Sprintf("Expect %s name.", kind))
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = p.consume(LeftParen, fmt.Sprintf("Expect '(' after %s name.", kind))
+	if err != nil {
+		return nil, err
+	}
+
+	var parameters []Token
+	if !p.check(RightParen) {
+		for {
+			if len(parameters) >= 255 {
+				_ = p.error(p.peek(), "Can't have more than 255 parameters.")
+			}
+
+			parameter, err := p.consume(Identifier, "Expect parameter name.")
+			if err != nil {
+				return nil, err
+			}
+			parameters = append(parameters, *parameter)
+
+			if !p.match(Comma) {
+				break
+			}
+		}
+	}
+
+	_, err = p.consume(RightParen, "Expect ')' after parameters.")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = p.consume(LeftBrace, fmt.Sprintf("Expect '{' before %s body.", kind))
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := p.block()
+	if err != nil {
+		return nil, err
+	}
+
+	return &stmt.Function{Name: *name, Params: parameters, Body: body}, nil
 }
 
 func (p *Parser) block() ([]stmt.Stmt, error) {
@@ -290,7 +368,7 @@ func (p *Parser) and() (expr.Expr, error) {
 }
 
 func (p *Parser) varDeclaration() (stmt.Stmt, error) {
-	name, err := p.consume(Identifier, "Expec variable name.")
+	name, err := p.consume(Identifier, "Expect variable name.")
 	if err != nil {
 		return nil, err
 	}
@@ -303,7 +381,7 @@ func (p *Parser) varDeclaration() (stmt.Stmt, error) {
 		}
 	}
 
-	_, err = p.consume(Semicolon, "Expect  ';' after variable declaration")
+	_, err = p.consume(Semicolon, "Expect ';' after variable declaration")
 	if err != nil {
 		return nil, err
 	}
@@ -312,23 +390,41 @@ func (p *Parser) varDeclaration() (stmt.Stmt, error) {
 }
 
 func (p *Parser) whileStatement() (stmt.Stmt, error) {
+	p.incrementLoops()
+	defer p.decrementLoops()
+
 	_, err := p.consume(LeftParen, "Expect '(' after 'while'.")
 	if err != nil {
 		return nil, err
 	}
+
 	condition, err := p.expression()
 	if err != nil {
 		return nil, err
 	}
+
 	_, err = p.consume(RightParen, "Expect ')' after condition.")
 	if err != nil {
 		return nil, err
 	}
+
 	body, err := p.statement()
 	if err != nil {
 		return nil, err
 	}
+
 	return stmt.While{Condition: condition, Body: body}, nil
+}
+
+func (p *Parser) breakStatement() (stmt.Stmt, error) {
+	if p.loops <= 0 {
+		return nil, p.error(p.previous(), "Break outside loop.")
+	}
+	_, err := p.consume(Semicolon, "Expect ';' after 'break'.")
+	if err != nil {
+		return nil, err
+	}
+	return stmt.Break{}, nil
 }
 
 func (p *Parser) equality() (expr.Expr, error) {
@@ -385,8 +481,10 @@ func (p *Parser) previous() Token {
 	return p.tokens[p.current-1]
 }
 
-func (p *Parser) error(token Token, message string) ParseError {
-	return ParseError{token, message}
+func (p *Parser) error(token Token, message string) errors.SyntaxError {
+	err := errors.NewSyntaxError(token, message)
+	fmt.Println(err)
+	return err
 }
 
 func (p *Parser) comparison() (expr.Expr, error) {
@@ -455,7 +553,54 @@ func (p *Parser) unary() (expr.Expr, error) {
 
 		return expr.Unary{Operator: operator, Right: right}, nil
 	}
-	return p.primary()
+
+	return p.call()
+}
+
+func (p *Parser) finishCall(callee expr.Expr) (expr.Expr, error) {
+	var arguments []expr.Expr
+	if !p.check(RightParen) {
+		for {
+			if len(arguments) >= 255 {
+				_ = p.error(p.peek(), "Can't have more than 255 arguments.")
+			}
+			exp, err := p.expression()
+			if err != nil {
+				return nil, err
+			}
+			arguments = append(arguments, exp)
+			if !p.match(Comma) {
+				break
+			}
+		}
+	}
+
+	paren, err := p.consume(RightParen, "Expect ')' after arguments.")
+	if err != nil {
+		return nil, err
+	}
+
+	return expr.Call{Callee: callee, Paren: *paren, Arguments: arguments}, nil
+}
+
+func (p *Parser) call() (expr.Expr, error) {
+	exp, err := p.primary()
+	if err != nil {
+		return nil, err
+	}
+
+	for {
+		if p.match(LeftParen) {
+			exp, err = p.finishCall(exp)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			break
+		}
+	}
+
+	return exp, nil
 }
 
 func (p *Parser) primary() (expr.Expr, error) {
@@ -491,7 +636,7 @@ func (p *Parser) consume(t TokenType, message string) (*Token, error) {
 	if p.check(t) {
 		return lo.ToPtr(p.advance()), nil
 	}
-	return nil, p.error(p.peek(), message)
+	return nil, p.error(p.previous(), message)
 }
 
 func (p *Parser) synchronize() {
@@ -522,4 +667,12 @@ func (p *Parser) synchronize() {
 
 		p.advance()
 	}
+}
+
+func (p *Parser) incrementLoops() {
+	p.loops++
+}
+
+func (p *Parser) decrementLoops() {
+	p.loops--
 }

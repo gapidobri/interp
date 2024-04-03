@@ -12,10 +12,13 @@ type Stmt interface {
 type visitor interface {
 	VisitExpressionStmt(*Expression) (any, error)
 	VisitPrintStmt(*Print) (any, error)
+	VisitReturnStmt(*Return) (any, error)
 	VisitVarStmt(*Var) (any, error)
 	VisitWhileStmt(*While) (any, error)
 	VisitBlockStmt(*Block) (any, error)
 	VisitIfStmt(*If) (any, error)
+	VisitBreakStmt(*Break) (any, error)
+	VisitFunctionStmt(*Function) (any, error)
 }
 
 type Expression struct {
@@ -24,6 +27,16 @@ type Expression struct {
 
 func (e Expression) Accept(visitor visitor) (any, error) {
 	return visitor.VisitExpressionStmt(&e)
+}
+
+type Function struct {
+	Name   token.Token
+	Params []token.Token
+	Body   []Stmt
+}
+
+func (f Function) Accept(visitor visitor) (any, error) {
+	return visitor.VisitFunctionStmt(&f)
 }
 
 type If struct {
@@ -42,6 +55,15 @@ type Print struct {
 
 func (p Print) Accept(visitor visitor) (any, error) {
 	return visitor.VisitPrintStmt(&p)
+}
+
+type Return struct {
+	Keyword token.Token
+	Value   expr.Expr
+}
+
+func (r Return) Accept(visitor visitor) (any, error) {
+	return visitor.VisitReturnStmt(&r)
 }
 
 type Var struct {
@@ -68,4 +90,10 @@ type Block struct {
 
 func (b Block) Accept(visitor visitor) (any, error) {
 	return visitor.VisitBlockStmt(&b)
+}
+
+type Break struct{}
+
+func (b Break) Accept(visitor visitor) (any, error) {
+	return visitor.VisitBreakStmt(&b)
 }

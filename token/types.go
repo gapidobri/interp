@@ -52,6 +52,7 @@ const (
 	Or     TokenType = "or"
 	Super  TokenType = "super"
 	This   TokenType = "this"
+	Break  TokenType = "break"
 
 	EOF TokenType = "eof"
 )

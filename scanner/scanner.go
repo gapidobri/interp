@@ -21,9 +21,10 @@ type Scanner struct {
 	source string
 	tokens []token.Token
 
-	start   int
-	current int
-	line    int
+	start     int
+	current   int
+	line      int
+	lineStart int
 }
 
 func NewScanner(source string) *Scanner {
@@ -42,7 +43,11 @@ func (s *Scanner) ScanTokens() ([]token.Token, error) {
 		}
 	}
 
-	s.tokens = append(s.tokens, token.Token{Type: token.EOF, Line: s.line})
+	s.tokens = append(s.tokens, token.Token{
+		Type:   token.EOF,
+		Line:   s.line,
+		Column: s.start - s.lineStart,
+	})
 
 	return s.tokens, nil
 }
@@ -103,6 +108,7 @@ func (s *Scanner) scanToken() error {
 	case '\t':
 	case '\n':
 		s.line++
+		s.lineStart = s.current
 	case '"':
 		return s.string()
 	default:
@@ -127,6 +133,7 @@ func (s *Scanner) addToken(tokenType token.TokenType) {
 		Type:   tokenType,
 		Lexeme: s.source[s.start:s.current],
 		Line:   s.line,
+		Column: s.start - s.lineStart,
 	})
 }
 
@@ -136,6 +143,7 @@ func (s *Scanner) addTokenLiteral(tokenType token.TokenType, literal any) {
 		Literal: &literal,
 		Lexeme:  s.source[s.start:s.current],
 		Line:    s.line,
+		Column:  s.start - s.lineStart,
 	})
 }
 

@@ -1,12 +1,11 @@
 package token
 
-import "fmt"
-
 type Token struct {
 	Type    TokenType
 	Lexeme  string
 	Literal *any
 	Line    int
+	Column  int
 }
 
 func (t Token) GetLiteral() any {
@@ -17,6 +16,6 @@ func (t Token) GetLiteral() any {
 	return literal
 }
 
-func (t Token) String() string {
-	return fmt.Sprintf("%d %s %s %v", t.Line, t.Type, t.Lexeme, t.GetLiteral())
-}
+//func (t token) String() string {
+//	return fmt.Sprintf("%d %s %s %v", t.Line, t.Type, t.Lexeme, t.GetLiteral())
+//}

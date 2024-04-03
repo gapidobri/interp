@@ -8,11 +8,17 @@ import (
 
 type Interpreter struct {
 	environment *environment.Environment
+	globals     *environment.Environment
 }
 
 func NewInterpreter() Interpreter {
+	globals := environment.NewEnvironment(nil)
+
+	globals.Define("clock", NewClock())
+
 	return Interpreter{
-		environment: environment.NewEnvironment(nil),
+		globals:     globals,
+		environment: globals,
 	}
 }
 
@@ -46,5 +52,6 @@ func (i *Interpreter) executeBlock(statements []stmt.Stmt, environment *environm
 		}
 	}
 
+	i.environment = previous
 	return nil
 }

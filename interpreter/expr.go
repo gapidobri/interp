@@ -1,9 +1,10 @@
 package interpreter
 
 import (
+	"fmt"
 	"interp/errors"
 	"interp/expr"
-	. "interp/token"
+	"interp/token"
 )
 
 func (i *Interpreter) VisitBinaryExpr(expr *expr.Binary) (any, error) {
@@ -18,46 +19,46 @@ func (i *Interpreter) VisitBinaryExpr(expr *expr.Binary) (any, error) {
 	}
 
 	switch expr.Operator.Type {
-	case Greater:
+	case token.Greater:
 		err := i.checkNumberOperands(expr.Operator, left, right)
 		if err != nil {
 			return nil, err
 		}
 
 		return left.(float64) > right.(float64), nil
-	case GreaterEqual:
+	case token.GreaterEqual:
 		err := i.checkNumberOperands(expr.Operator, left, right)
 		if err != nil {
 			return nil, err
 		}
 
 		return left.(float64) >= right.(float64), nil
-	case Less:
+	case token.Less:
 		err := i.checkNumberOperands(expr.Operator, left, right)
 		if err != nil {
 			return nil, err
 		}
 
 		return left.(float64) < right.(float64), nil
-	case LessEqual:
+	case token.LessEqual:
 		err := i.checkNumberOperands(expr.Operator, left, right)
 		if err != nil {
 			return nil, err
 		}
 
 		return left.(float64) <= right.(float64), nil
-	case BangEqual:
+	case token.BangEqual:
 		return left != right, nil
-	case EqualEqual:
+	case token.EqualEqual:
 		return left == right, nil
-	case Minus:
+	case token.Minus:
 		err := i.checkNumberOperand(expr.Operator, right)
 		if err != nil {
 			return nil, err
 		}
 
 		return left.(float64) - right.(float64), nil
-	case Plus:
+	case token.Plus:
 		if i.isFloat(left) && i.isFloat(right) {
 			return left.(float64) + right.(float64), nil
 		}
@@ -66,7 +67,7 @@ func (i *Interpreter) VisitBinaryExpr(expr *expr.Binary) (any, error) {
 		}
 
 		return nil, errors.NewRuntimeError(expr.Operator, "Operands must be two numbers or two strings.")
-	case Slash:
+	case token.Slash:
 		err := i.checkNumberOperands(expr.Operator, left, right)
 		if err != nil {
 			return nil, err
@@ -77,7 +78,7 @@ func (i *Interpreter) VisitBinaryExpr(expr *expr.Binary) (any, error) {
 		}
 
 		return left.(float64) / right.(float64), nil
-	case Star:
+	case token.Star:
 		err := i.checkNumberOperands(expr.Operator, left, right)
 		if err != nil {
 			return nil, err
@@ -87,6 +88,36 @@ func (i *Interpreter) VisitBinaryExpr(expr *expr.Binary) (any, error) {
 	}
 
 	return nil, nil
+}
+
+func (i *Interpreter) VisitCallExpr(expr *expr.Call) (any, error) {
+	callee, err := i.evaluate(expr.Callee)
+	if err != nil {
+		return nil, err
+	}
+
+	var arguments []any
+	for _, argument := range expr.Arguments {
+		value, err := i.evaluate(argument)
+		if err != nil {
+			return nil, err
+		}
+		arguments = append(arguments, value)
+	}
+
+	function, ok := callee.(Callable)
+	if !ok {
+		return nil, errors.NewRuntimeError(expr.Paren, "Can only call functions and classes.")
+	}
+
+	if len(arguments) != function.arity() {
+		return nil, errors.NewRuntimeError(
+			expr.Paren,
+			fmt.Sprintf("Expected %d arguments but got %d.", function.arity(), len(arguments)),
+		)
+	}
+
+	return function.call(i, arguments)
 }
 
 func (i *Interpreter) VisitGroupingExpr(expr *expr.Grouping) (any, error) {
@@ -103,7 +134,7 @@ func (i *Interpreter) VisitLogicalExpr(expr *expr.Logical) (any, error) {
 		return nil, err
 	}
 
-	if expr.Operator.Type == Or {
+	if expr.Operator.Type == token.Or {
 		if i.isTruthy(left) {
 			return left, nil
 		}
@@ -123,9 +154,9 @@ func (i *Interpreter) VisitUnaryExpr(expr *expr.Unary) (any, error) {
 	}
 
 	switch expr.Operator.Type {
-	case Bang:
+	case token.Bang:
 		return !i.isTruthy(right), nil
-	case Minus:
+	case token.Minus:
 		return -right.(float64), nil
 	}
 

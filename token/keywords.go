@@ -2,6 +2,7 @@ package token
 
 var Keywords = map[string]TokenType{
 	"and":    And,
+	"break":  Break,
 	"class":  Class,
 	"else":   Else,
 	"false":  False,

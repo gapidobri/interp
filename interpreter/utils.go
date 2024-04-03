@@ -3,7 +3,7 @@ package interpreter
 import (
 	"fmt"
 	"interp/errors"
-	. "interp/token"
+	"interp/token"
 	"strings"
 )
 
@@ -12,10 +12,11 @@ func (i *Interpreter) stringify(object any) string {
 		return "nil"
 	}
 	if i.isFloat(object) {
-		text := fmt.Sprintf("%f", object)
-		if strings.HasSuffix(text, ".0") {
-			text = text[:len(text)-2]
+		text := fmt.Sprintf("%.2f", object)
+		if strings.HasSuffix(text, ".00") {
+			text = text[:len(text)-3]
 		}
+		return text
 	}
 	return fmt.Sprintf("%v", object)
 }
@@ -43,14 +44,14 @@ func (i *Interpreter) isString(object any) bool {
 	return ok
 }
 
-func (i *Interpreter) checkNumberOperand(operator Token, operand any) error {
+func (i *Interpreter) checkNumberOperand(operator token.Token, operand any) error {
 	if i.isFloat(operand) {
 		return nil
 	}
 	return errors.NewRuntimeError(operator, "Operand must be a number.")
 }
 
-func (i *Interpreter) checkNumberOperands(operator Token, left any, right any) error {
+func (i *Interpreter) checkNumberOperands(operator token.Token, left any, right any) error {
 	if i.isFloat(left) && i.isFloat(right) {
 		return nil
 	}
