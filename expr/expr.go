@@ -13,6 +13,7 @@ type visitor interface {
 	VisitUnaryExpr(*Unary) (any, error)
 	VisitVariableExpr(*Variable) (any, error)
 	VisitAssignExpr(*Assign) (any, error)
+	VisitLogicalExpr(*Logical) (any, error)
 }
 
 type Binary struct {
@@ -39,6 +40,16 @@ type Literal struct {
 
 func (l Literal) Accept(visitor visitor) (any, error) {
 	return visitor.VisitLiteralExpr(&l)
+}
+
+type Logical struct {
+	Left     Expr
+	Operator token.Token
+	Right    Expr
+}
+
+func (l Logical) Accept(visitor visitor) (any, error) {
+	return visitor.VisitLogicalExpr(&l)
 }
 
 type Unary struct {

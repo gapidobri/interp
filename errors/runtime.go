@@ -15,5 +15,9 @@ func NewRuntimeError(token token.Token, message string) RuntimeError {
 }
 
 func (r RuntimeError) Error() string {
-	return fmt.Sprintf("%s\n[line %d]", r.message, r.token.Line)
+	return fmt.Sprintf("[line %d] %s", r.token.Line, r.message)
+}
+
+func (r RuntimeError) Token() token.Token {
+	return r.token
 }

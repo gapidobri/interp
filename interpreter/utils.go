@@ -27,6 +27,9 @@ func (i *Interpreter) isTruthy(object any) bool {
 	if b, ok := object.(bool); ok {
 		return b
 	}
+	if f, ok := object.(float64); ok && f == 0 {
+		return false
+	}
 	return true
 }
 

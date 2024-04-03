@@ -97,6 +97,25 @@ func (i *Interpreter) VisitLiteralExpr(expr *expr.Literal) (any, error) {
 	return expr.Value, nil
 }
 
+func (i *Interpreter) VisitLogicalExpr(expr *expr.Logical) (any, error) {
+	left, err := i.evaluate(expr.Left)
+	if err != nil {
+		return nil, err
+	}
+
+	if expr.Operator.Type == Or {
+		if i.isTruthy(left) {
+			return left, nil
+		}
+	} else {
+		if !i.isTruthy(left) {
+			return left, nil
+		}
+	}
+
+	return i.evaluate(expr.Right)
+}
+
 func (i *Interpreter) VisitUnaryExpr(expr *expr.Unary) (any, error) {
 	right, err := i.evaluate(expr.Right)
 	if err != nil {
