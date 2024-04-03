@@ -123,7 +123,10 @@ func (i *Interpreter) VisitAssignExpr(expr *expr.Assign) (any, error) {
 		return nil, err
 	}
 
-	i.environment.Assign(expr.Name, value)
+	err = i.environment.Assign(expr.Name, value)
+	if err != nil {
+		return nil, err
+	}
 
 	return value, nil
 }

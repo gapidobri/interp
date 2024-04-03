@@ -27,9 +27,10 @@ func main() {
 		panic(err)
 	}
 
-	interp := interpreter.NewInterpreter()
-	err = interp.Interpret(statements)
+	inter := interpreter.NewInterpreter()
+	err = inter.Interpret(statements)
 	if err != nil {
 		panic(err)
 	}
+
 }
