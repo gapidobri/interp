@@ -1,6 +1,9 @@
 package main
 
 import (
+	"interp/interpreter"
+	"interp/parser"
+	"interp/scanner"
 	"os"
 )
 
@@ -12,20 +15,20 @@ func main() {
 		panic(err)
 	}
 
-	scanner := NewScanner(string(bytes))
-	tokens, err := scanner.scanTokens()
+	scan := scanner.NewScanner(string(bytes))
+	tokens, err := scan.ScanTokens()
 	if err != nil {
 		panic(err)
 	}
 
-	parser := NewParser(tokens)
-	expression, err := parser.Parse()
+	par := parser.NewParser(tokens)
+	statements, err := par.Parse()
 	if err != nil {
 		panic(err)
 	}
 
-	interpreter := NewInterpreter()
-	err = interpreter.Interpret(expression)
+	interp := interpreter.NewInterpreter()
+	err = interp.Interpret(statements)
 	if err != nil {
 		panic(err)
 	}
