@@ -34,6 +34,12 @@ func main() {
 	}
 
 	inter := interpreter.NewInterpreter()
+
+	//res := resolver.NewResolver(&inter)
+	//if err := res.Resolve(statements); err != nil {
+	//	fmt.Println(err)
+	//}
+
 	err = inter.Interpret(statements)
 	if err, ok := err.(errors.RuntimeError); ok {
 		err.Print(&source)

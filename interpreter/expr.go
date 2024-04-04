@@ -2,12 +2,12 @@ package interpreter
 
 import (
 	"fmt"
+	"interp/ast"
 	"interp/errors"
-	"interp/expr"
 	"interp/token"
 )
 
-func (i *Interpreter) VisitBinaryExpr(expr *expr.Binary) (any, error) {
+func (i *Interpreter) VisitBinaryExpr(expr *ast.BinaryExpr) (any, error) {
 	left, err := i.evaluate(expr.Left)
 	if err != nil {
 		return nil, err
@@ -90,7 +90,7 @@ func (i *Interpreter) VisitBinaryExpr(expr *expr.Binary) (any, error) {
 	return nil, nil
 }
 
-func (i *Interpreter) VisitCallExpr(expr *expr.Call) (any, error) {
+func (i *Interpreter) VisitCallExpr(expr *ast.CallExpr) (any, error) {
 	callee, err := i.evaluate(expr.Callee)
 	if err != nil {
 		return nil, err
@@ -120,15 +120,19 @@ func (i *Interpreter) VisitCallExpr(expr *expr.Call) (any, error) {
 	return function.call(i, arguments)
 }
 
-func (i *Interpreter) VisitGroupingExpr(expr *expr.Grouping) (any, error) {
+func (i *Interpreter) VisitGroupingExpr(expr *ast.GroupingExpr) (any, error) {
 	return i.evaluate(expr.Expression)
 }
 
-func (i *Interpreter) VisitLiteralExpr(expr *expr.Literal) (any, error) {
+func (i *Interpreter) VisitLambdaExpr(expr *ast.LambdaExpr) (any, error) {
+	return NewLambda(expr, i.environment), nil
+}
+
+func (i *Interpreter) VisitLiteralExpr(expr *ast.LiteralExpr) (any, error) {
 	return expr.Value, nil
 }
 
-func (i *Interpreter) VisitLogicalExpr(expr *expr.Logical) (any, error) {
+func (i *Interpreter) VisitLogicalExpr(expr *ast.LogicalExpr) (any, error) {
 	left, err := i.evaluate(expr.Left)
 	if err != nil {
 		return nil, err
@@ -147,7 +151,7 @@ func (i *Interpreter) VisitLogicalExpr(expr *expr.Logical) (any, error) {
 	return i.evaluate(expr.Right)
 }
 
-func (i *Interpreter) VisitUnaryExpr(expr *expr.Unary) (any, error) {
+func (i *Interpreter) VisitUnaryExpr(expr *ast.UnaryExpr) (any, error) {
 	right, err := i.evaluate(expr.Right)
 	if err != nil {
 		return nil, err
@@ -163,19 +167,33 @@ func (i *Interpreter) VisitUnaryExpr(expr *expr.Unary) (any, error) {
 	return nil, nil
 }
 
-func (i *Interpreter) VisitVariableExpr(expr *expr.Variable) (any, error) {
-	return i.environment.Get(expr.Name)
+func (i *Interpreter) VisitVariableExpr(expr *ast.VariableExpr) (any, error) {
+	return i.lookUpVariable(expr.Name, expr)
 }
 
-func (i *Interpreter) VisitAssignExpr(expr *expr.Assign) (any, error) {
+func (i *Interpreter) lookUpVariable(name token.Token, expr ast.Expr) (any, error) {
+	distance, ok := i.locals[expr]
+	if ok {
+		return i.environment.GetAt(distance, name.Lexeme), nil
+	} else {
+		return i.globals.Get(name)
+	}
+}
+
+func (i *Interpreter) VisitAssignExpr(expr *ast.AssignExpr) (any, error) {
 	value, err := i.evaluate(expr.Value)
 	if err != nil {
 		return nil, err
 	}
 
-	err = i.environment.Assign(expr.Name, value)
-	if err != nil {
-		return nil, err
+	distance, ok := i.locals[expr]
+	if ok {
+		i.environment.AssignAt(distance, expr.Name, value)
+	} else {
+		err = i.globals.Assign(expr.Name, value)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return value, nil

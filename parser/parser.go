@@ -3,9 +3,8 @@ package parser
 import (
 	"fmt"
 	"github.com/samber/lo"
+	"interp/ast"
 	"interp/errors"
-	"interp/expr"
-	"interp/stmt"
 	. "interp/token"
 )
 
@@ -28,8 +27,8 @@ func NewParser(tokens []Token) Parser {
 	return Parser{tokens: tokens}
 }
 
-func (p *Parser) Parse() ([]stmt.Stmt, error) {
-	var statements []stmt.Stmt
+func (p *Parser) Parse() ([]ast.Stmt, error) {
+	var statements []ast.Stmt
 	for !p.isAtEnd() {
 		declaration, err := p.declaration()
 		if err != nil {
@@ -41,13 +40,13 @@ func (p *Parser) Parse() ([]stmt.Stmt, error) {
 	return statements, nil
 }
 
-func (p *Parser) expression() (expr.Expr, error) {
+func (p *Parser) expression() (ast.Expr, error) {
 	return p.assigment()
 }
 
-func (p *Parser) declaration() (stmt.Stmt, error) {
+func (p *Parser) declaration() (ast.Stmt, error) {
 	var (
-		statement stmt.Stmt
+		statement ast.Stmt
 		err       error
 	)
 	switch {
@@ -65,7 +64,7 @@ func (p *Parser) declaration() (stmt.Stmt, error) {
 	return statement, nil
 }
 
-func (p *Parser) statement() (stmt.Stmt, error) {
+func (p *Parser) statement() (ast.Stmt, error) {
 	switch {
 	case p.match(For):
 		return p.forStatement()
@@ -84,13 +83,13 @@ func (p *Parser) statement() (stmt.Stmt, error) {
 		if err != nil {
 			return nil, err
 		}
-		return stmt.Block{Statements: statements}, nil
+		return ast.BlockStmt{Statements: statements}, nil
 	}
 
 	return p.expressionStatement()
 }
 
-func (p *Parser) forStatement() (stmt.Stmt, error) {
+func (p *Parser) forStatement() (ast.Stmt, error) {
 	p.incrementLoops()
 	defer p.decrementLoops()
 
@@ -99,7 +98,7 @@ func (p *Parser) forStatement() (stmt.Stmt, error) {
 		return nil, err
 	}
 
-	var initializer stmt.Stmt
+	var initializer ast.Stmt
 	switch {
 	case p.match(Semicolon):
 		initializer = nil
@@ -112,7 +111,7 @@ func (p *Parser) forStatement() (stmt.Stmt, error) {
 		return nil, err
 	}
 
-	var condition expr.Expr
+	var condition ast.Expr
 	if !p.check(Semicolon) {
 		condition, err = p.expression()
 		if err != nil {
@@ -124,7 +123,7 @@ func (p *Parser) forStatement() (stmt.Stmt, error) {
 		return nil, err
 	}
 
-	var increment expr.Expr
+	var increment ast.Expr
 	if !p.check(RightParen) {
 		increment, err = p.expression()
 		if err != nil {
@@ -142,27 +141,25 @@ func (p *Parser) forStatement() (stmt.Stmt, error) {
 	}
 
 	if increment != nil {
-		body = stmt.Block{Statements: []stmt.Stmt{
+		body = ast.BlockStmt{Statements: []ast.Stmt{
 			body,
-			stmt.Expression{Expression: increment},
+			ast.ExpressionStmt{Expression: increment},
 		}}
 	}
 
 	if condition == nil {
-		condition = expr.Literal{Value: true}
+		condition = ast.LiteralExpr{Value: true}
 	}
-	body = stmt.While{Condition: condition, Body: body}
+	body = ast.WhileStmt{Condition: condition, Body: body}
 
 	if initializer != nil {
-		body = stmt.Block{Statements: []stmt.Stmt{
-			initializer, body,
-		}}
+		body = ast.BlockStmt{Statements: []ast.Stmt{initializer, body}}
 	}
 
 	return body, nil
 }
 
-func (p *Parser) ifStatement() (stmt.Stmt, error) {
+func (p *Parser) ifStatement() (ast.Stmt, error) {
 	_, err := p.consume(LeftParen, "Expect '(' after 'if'.")
 	if err != nil {
 		return nil, err
@@ -183,7 +180,7 @@ func (p *Parser) ifStatement() (stmt.Stmt, error) {
 		return nil, err
 	}
 
-	var elseBranch stmt.Stmt
+	var elseBranch ast.Stmt
 	if p.match(Else) {
 		elseBranch, err = p.statement()
 		if err != nil {
@@ -191,10 +188,10 @@ func (p *Parser) ifStatement() (stmt.Stmt, error) {
 		}
 	}
 
-	return stmt.If{Condition: condition, ThenBranch: thenBranch, ElseBranch: elseBranch}, nil
+	return ast.IfStmt{Condition: condition, ThenBranch: thenBranch, ElseBranch: elseBranch}, nil
 }
 
-func (p *Parser) printStatement() (stmt.Stmt, error) {
+func (p *Parser) printStatement() (ast.Stmt, error) {
 	value, err := p.expression()
 	if err != nil {
 		return nil, err
@@ -205,12 +202,12 @@ func (p *Parser) printStatement() (stmt.Stmt, error) {
 		return nil, err
 	}
 
-	return stmt.Print{Expression: value}, nil
+	return ast.PrintStmt{Expression: value}, nil
 }
 
-func (p *Parser) returnStatement() (stmt.Stmt, error) {
+func (p *Parser) returnStatement() (ast.Stmt, error) {
 	keyword := p.previous()
-	var value expr.Expr
+	var value ast.Expr
 	if !p.check(Semicolon) {
 		var err error
 		value, err = p.expression()
@@ -224,10 +221,10 @@ func (p *Parser) returnStatement() (stmt.Stmt, error) {
 		return nil, err
 	}
 
-	return stmt.Return{Keyword: keyword, Value: value}, nil
+	return ast.ReturnStmt{Keyword: keyword, Value: value}, nil
 }
 
-func (p *Parser) expressionStatement() (stmt.Stmt, error) {
+func (p *Parser) expressionStatement() (ast.Stmt, error) {
 	exp, err := p.expression()
 	if err != nil {
 		return nil, err
@@ -238,10 +235,10 @@ func (p *Parser) expressionStatement() (stmt.Stmt, error) {
 		return nil, err
 	}
 
-	return stmt.Expression{Expression: exp}, nil
+	return ast.ExpressionStmt{Expression: exp}, nil
 }
 
-func (p *Parser) function(kind string) (*stmt.Function, error) {
+func (p *Parser) function(kind string) (*ast.FunctionStmt, error) {
 	name, err := p.consume(Identifier, fmt.Sprintf("Expect %s name.", kind))
 	if err != nil {
 		return nil, err
@@ -286,11 +283,54 @@ func (p *Parser) function(kind string) (*stmt.Function, error) {
 		return nil, err
 	}
 
-	return &stmt.Function{Name: *name, Params: parameters, Body: body}, nil
+	return &ast.FunctionStmt{Name: *name, Params: parameters, Body: body}, nil
 }
 
-func (p *Parser) block() ([]stmt.Stmt, error) {
-	var statements []stmt.Stmt
+func (p *Parser) lambda() (*ast.LambdaExpr, error) {
+	_, err := p.consume(LeftParen, "Expect '(' after 'fun'")
+	if err != nil {
+		return nil, err
+	}
+
+	var parameters []Token
+	if !p.check(RightParen) {
+		for {
+			if len(parameters) >= 255 {
+				_ = p.error(p.peek(), "Can't have more than 255 parameters.")
+			}
+
+			parameter, err := p.consume(Identifier, "Expect parameter name.")
+			if err != nil {
+				return nil, err
+			}
+			parameters = append(parameters, *parameter)
+
+			if !p.match(Comma) {
+				break
+			}
+		}
+	}
+
+	_, err = p.consume(RightParen, "Expect ')' after parameters.")
+	if err != nil {
+		return nil, err
+	}
+
+	_, err = p.consume(LeftBrace, "Expect '{' before lambda body.")
+	if err != nil {
+		return nil, err
+	}
+
+	body, err := p.block()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ast.LambdaExpr{Params: parameters, Body: body}, nil
+}
+
+func (p *Parser) block() ([]ast.Stmt, error) {
+	var statements []ast.Stmt
 
 	for !p.check(RightBrace) && !p.isAtEnd() {
 		declaration, err := p.declaration()
@@ -308,7 +348,7 @@ func (p *Parser) block() ([]stmt.Stmt, error) {
 	return statements, nil
 }
 
-func (p *Parser) assigment() (expr.Expr, error) {
+func (p *Parser) assigment() (ast.Expr, error) {
 	exp, err := p.or()
 	if err != nil {
 		return nil, err
@@ -321,8 +361,8 @@ func (p *Parser) assigment() (expr.Expr, error) {
 			return nil, err
 		}
 
-		if variable, ok := exp.(expr.Variable); ok {
-			return expr.Assign{Name: variable.Name, Value: value}, nil
+		if variable, ok := exp.(ast.VariableExpr); ok {
+			return ast.AssignExpr{Name: variable.Name, Value: value}, nil
 		}
 
 		return nil, p.error(equals, "Invalid assigment target.")
@@ -331,7 +371,7 @@ func (p *Parser) assigment() (expr.Expr, error) {
 	return exp, nil
 }
 
-func (p *Parser) or() (expr.Expr, error) {
+func (p *Parser) or() (ast.Expr, error) {
 	exp, err := p.and()
 	if err != nil {
 		return nil, err
@@ -343,13 +383,13 @@ func (p *Parser) or() (expr.Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		exp = expr.Logical{Left: exp, Operator: operator, Right: right}
+		exp = ast.LogicalExpr{Left: exp, Operator: operator, Right: right}
 	}
 
 	return exp, nil
 }
 
-func (p *Parser) and() (expr.Expr, error) {
+func (p *Parser) and() (ast.Expr, error) {
 	exp, err := p.equality()
 	if err != nil {
 		return nil, err
@@ -361,19 +401,19 @@ func (p *Parser) and() (expr.Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-		exp = expr.Logical{Left: exp, Operator: operator, Right: right}
+		exp = ast.LogicalExpr{Left: exp, Operator: operator, Right: right}
 	}
 
 	return exp, nil
 }
 
-func (p *Parser) varDeclaration() (stmt.Stmt, error) {
+func (p *Parser) varDeclaration() (ast.Stmt, error) {
 	name, err := p.consume(Identifier, "Expect variable name.")
 	if err != nil {
 		return nil, err
 	}
 
-	var initializer expr.Expr
+	var initializer ast.Expr
 	if p.match(Equal) {
 		initializer, err = p.expression()
 		if err != nil {
@@ -386,10 +426,10 @@ func (p *Parser) varDeclaration() (stmt.Stmt, error) {
 		return nil, err
 	}
 
-	return stmt.Var{Name: *name, Initializer: initializer}, nil
+	return ast.VarStmt{Name: *name, Initializer: initializer}, nil
 }
 
-func (p *Parser) whileStatement() (stmt.Stmt, error) {
+func (p *Parser) whileStatement() (ast.Stmt, error) {
 	p.incrementLoops()
 	defer p.decrementLoops()
 
@@ -413,21 +453,22 @@ func (p *Parser) whileStatement() (stmt.Stmt, error) {
 		return nil, err
 	}
 
-	return stmt.While{Condition: condition, Body: body}, nil
+	return ast.WhileStmt{Condition: condition, Body: body}, nil
 }
 
-func (p *Parser) breakStatement() (stmt.Stmt, error) {
+func (p *Parser) breakStatement() (ast.Stmt, error) {
+	keyword := p.previous()
 	if p.loops <= 0 {
-		return nil, p.error(p.previous(), "Break outside loop.")
+		return nil, p.error(keyword, "Break outside loop.")
 	}
 	_, err := p.consume(Semicolon, "Expect ';' after 'break'.")
 	if err != nil {
 		return nil, err
 	}
-	return stmt.Break{}, nil
+	return ast.BreakStmt{Keyword: keyword}, nil
 }
 
-func (p *Parser) equality() (expr.Expr, error) {
+func (p *Parser) equality() (ast.Expr, error) {
 	exp, err := p.comparison()
 	if err != nil {
 		return nil, err
@@ -440,7 +481,7 @@ func (p *Parser) equality() (expr.Expr, error) {
 			return nil, err
 		}
 
-		exp = expr.Binary{Left: exp, Operator: operator, Right: right}
+		exp = ast.BinaryExpr{Left: exp, Operator: operator, Right: right}
 	}
 	return exp, nil
 }
@@ -487,7 +528,7 @@ func (p *Parser) error(token Token, message string) errors.SyntaxError {
 	return err
 }
 
-func (p *Parser) comparison() (expr.Expr, error) {
+func (p *Parser) comparison() (ast.Expr, error) {
 	exp, err := p.term()
 	if err != nil {
 		return nil, err
@@ -500,12 +541,12 @@ func (p *Parser) comparison() (expr.Expr, error) {
 			return nil, err
 		}
 
-		exp = expr.Binary{Left: exp, Operator: operator, Right: right}
+		exp = ast.BinaryExpr{Left: exp, Operator: operator, Right: right}
 	}
 	return exp, nil
 }
 
-func (p *Parser) term() (expr.Expr, error) {
+func (p *Parser) term() (ast.Expr, error) {
 	exp, err := p.factor()
 	if err != nil {
 		return nil, err
@@ -518,13 +559,13 @@ func (p *Parser) term() (expr.Expr, error) {
 			return nil, err
 		}
 
-		exp = expr.Binary{Left: exp, Operator: operator, Right: right}
+		exp = ast.BinaryExpr{Left: exp, Operator: operator, Right: right}
 	}
 
 	return exp, nil
 }
 
-func (p *Parser) factor() (expr.Expr, error) {
+func (p *Parser) factor() (ast.Expr, error) {
 	exp, err := p.unary()
 	if err != nil {
 		return nil, err
@@ -537,13 +578,13 @@ func (p *Parser) factor() (expr.Expr, error) {
 			return nil, err
 		}
 
-		exp = expr.Binary{Left: exp, Operator: operator, Right: right}
+		exp = ast.BinaryExpr{Left: exp, Operator: operator, Right: right}
 	}
 
 	return exp, nil
 }
 
-func (p *Parser) unary() (expr.Expr, error) {
+func (p *Parser) unary() (ast.Expr, error) {
 	if p.match(Bang, Minus) {
 		operator := p.previous()
 		right, err := p.unary()
@@ -551,14 +592,14 @@ func (p *Parser) unary() (expr.Expr, error) {
 			return nil, err
 		}
 
-		return expr.Unary{Operator: operator, Right: right}, nil
+		return ast.UnaryExpr{Operator: operator, Right: right}, nil
 	}
 
 	return p.call()
 }
 
-func (p *Parser) finishCall(callee expr.Expr) (expr.Expr, error) {
-	var arguments []expr.Expr
+func (p *Parser) finishCall(callee ast.Expr) (ast.Expr, error) {
+	var arguments []ast.Expr
 	if !p.check(RightParen) {
 		for {
 			if len(arguments) >= 255 {
@@ -580,10 +621,10 @@ func (p *Parser) finishCall(callee expr.Expr) (expr.Expr, error) {
 		return nil, err
 	}
 
-	return expr.Call{Callee: callee, Paren: *paren, Arguments: arguments}, nil
+	return ast.CallExpr{Callee: callee, Paren: *paren, Arguments: arguments}, nil
 }
 
-func (p *Parser) call() (expr.Expr, error) {
+func (p *Parser) call() (ast.Expr, error) {
 	exp, err := p.primary()
 	if err != nil {
 		return nil, err
@@ -603,18 +644,20 @@ func (p *Parser) call() (expr.Expr, error) {
 	return exp, nil
 }
 
-func (p *Parser) primary() (expr.Expr, error) {
+func (p *Parser) primary() (ast.Expr, error) {
 	switch {
 	case p.match(False):
-		return expr.Literal{Value: false}, nil
+		return ast.LiteralExpr{Value: false}, nil
 	case p.match(True):
-		return expr.Literal{Value: true}, nil
+		return ast.LiteralExpr{Value: true}, nil
 	case p.match(Nil):
-		return expr.Literal{}, nil
+		return ast.LiteralExpr{}, nil
 	case p.match(Number, String):
-		return expr.Literal{Value: *p.previous().Literal}, nil
+		return ast.LiteralExpr{Value: *p.previous().Literal}, nil
+	case p.match(Fun):
+		return p.lambda()
 	case p.match(Identifier):
-		return expr.Variable{Name: p.previous()}, nil
+		return ast.VariableExpr{Name: p.previous()}, nil
 	case p.match(LeftParen):
 		exp, err := p.expression()
 		if err != nil {
@@ -626,7 +669,7 @@ func (p *Parser) primary() (expr.Expr, error) {
 			return nil, err
 		}
 
-		return expr.Grouping{Expression: exp}, nil
+		return ast.GroupingExpr{Expression: exp}, nil
 	}
 
 	return nil, p.error(p.peek(), "Expect expression.")

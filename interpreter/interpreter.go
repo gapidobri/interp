@@ -1,14 +1,14 @@
 package interpreter
 
 import (
+	"interp/ast"
 	"interp/environment"
-	"interp/expr"
-	"interp/stmt"
 )
 
 type Interpreter struct {
 	environment *environment.Environment
 	globals     *environment.Environment
+	locals      map[ast.Expr]int
 }
 
 func NewInterpreter() Interpreter {
@@ -19,10 +19,11 @@ func NewInterpreter() Interpreter {
 	return Interpreter{
 		globals:     globals,
 		environment: globals,
+		locals:      map[ast.Expr]int{},
 	}
 }
 
-func (i *Interpreter) Interpret(statements []stmt.Stmt) error {
+func (i *Interpreter) Interpret(statements []ast.Stmt) error {
 	for _, statement := range statements {
 		_, err := i.execute(statement)
 		if err != nil {
@@ -32,15 +33,19 @@ func (i *Interpreter) Interpret(statements []stmt.Stmt) error {
 	return nil
 }
 
-func (i *Interpreter) evaluate(expr expr.Expr) (any, error) {
+func (i *Interpreter) evaluate(expr ast.Expr) (any, error) {
 	return expr.Accept(i)
 }
 
-func (i *Interpreter) execute(stmt stmt.Stmt) (any, error) {
+func (i *Interpreter) execute(stmt ast.Stmt) (any, error) {
 	return stmt.Accept(i)
 }
 
-func (i *Interpreter) executeBlock(statements []stmt.Stmt, environment *environment.Environment) error {
+func (i *Interpreter) Resolve(expr ast.Expr, depth int) {
+	i.locals[expr] = depth
+}
+
+func (i *Interpreter) executeBlock(statements []ast.Stmt, environment *environment.Environment) error {
 	previous := i.environment
 	i.environment = environment
 

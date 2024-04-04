@@ -2,16 +2,16 @@ package interpreter
 
 import (
 	"fmt"
+	"interp/ast"
 	"interp/environment"
-	"interp/stmt"
 )
 
 type Function struct {
-	declaration *stmt.Function
+	declaration *ast.FunctionStmt
 	closure     *environment.Environment
 }
 
-func NewFunction(declaration *stmt.Function, closure *environment.Environment) Callable {
+func NewFunction(declaration *ast.FunctionStmt, closure *environment.Environment) Callable {
 	return Function{
 		declaration: declaration,
 		closure:     closure,
