@@ -9,9 +9,15 @@ type varState struct {
 }
 
 func (v *varState) define() {
+	if v == nil {
+		return
+	}
 	v.defined = true
 }
 
 func (v *varState) resolve() {
+	if v == nil {
+		return
+	}
 	v.resolved = true
 }

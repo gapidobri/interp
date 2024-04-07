@@ -16,6 +16,7 @@ type stmtVisitor interface {
 	VisitVarStmt(*VarStmt) (any, error)
 	VisitWhileStmt(*WhileStmt) (any, error)
 	VisitBlockStmt(*BlockStmt) (any, error)
+	VisitClassStmt(*ClassStmt) (any, error)
 	VisitIfStmt(*IfStmt) (any, error)
 	VisitBreakStmt(*BreakStmt) (any, error)
 }
@@ -121,6 +122,19 @@ func NewBlockStmt(statements []Stmt) *BlockStmt {
 
 func (b *BlockStmt) Accept(visitor stmtVisitor) (any, error) {
 	return visitor.VisitBlockStmt(b)
+}
+
+type ClassStmt struct {
+	Name    token.Token
+	Methods []*FunctionStmt
+}
+
+func NewClassStmt(name token.Token, methods []*FunctionStmt) *ClassStmt {
+	return &ClassStmt{name, methods}
+}
+
+func (c *ClassStmt) Accept(visitor stmtVisitor) (any, error) {
+	return visitor.VisitClassStmt(c)
 }
 
 type BreakStmt struct {

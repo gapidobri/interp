@@ -15,7 +15,7 @@ func (i *Interpreter) VisitExpressionStmt(stmt *ast.ExpressionStmt) (any, error)
 }
 
 func (i *Interpreter) VisitFunctionStmt(stmt *ast.FunctionStmt) (any, error) {
-	function := NewFunction(stmt, i.environment)
+	function := NewFunction(stmt, i.environment, false)
 	i.environment.Define(stmt.Name.Lexeme, function)
 	return nil, nil
 }
@@ -102,6 +102,19 @@ func (i *Interpreter) VisitWhileStmt(stmt *ast.WhileStmt) (any, error) {
 
 func (i *Interpreter) VisitBlockStmt(stmt *ast.BlockStmt) (any, error) {
 	return nil, i.executeBlock(stmt.Statements, environment.NewEnvironment(i.environment))
+}
+
+func (i *Interpreter) VisitClassStmt(stmt *ast.ClassStmt) (any, error) {
+	i.environment.Define(stmt.Name.Lexeme, nil)
+
+	methods := map[string]*Function{}
+	for _, method := range stmt.Methods {
+		function := NewFunction(method, i.environment, method.Name.Lexeme == "init")
+		methods[method.Name.Lexeme] = function
+	}
+
+	class := NewClass(stmt.Name.Lexeme, methods)
+	return nil, i.environment.Assign(stmt.Name, class)
 }
 
 func (i *Interpreter) VisitBreakStmt(stmt *ast.BreakStmt) (any, error) {

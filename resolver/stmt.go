@@ -15,6 +15,38 @@ func (r *Resolver) VisitBlockStmt(stmt *ast.BlockStmt) (any, error) {
 	return nil, nil
 }
 
+func (r *Resolver) VisitClassStmt(stmt *ast.ClassStmt) (any, error) {
+	enclosingClass := r.currentClass
+	r.currentClass = ClassTypeClass
+
+	r.declare(stmt.Name)
+	r.define(stmt.Name)
+
+	r.beginScope()
+	scope, ok := r.scopes.peek()
+	if !ok {
+		return nil, nil
+	}
+
+	scope["this"] = &varState{defined: true, resolved: true}
+
+	for _, method := range stmt.Methods {
+		declaration := FunctionTypeMethod
+		if method.Name.Lexeme == "init" {
+			declaration = FunctionTypeInitializer
+		}
+		err := r.resolveFunction(method, declaration)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	r.endScope()
+
+	r.currentClass = enclosingClass
+	return nil, nil
+}
+
 func (r *Resolver) VisitFunctionStmt(stmt *ast.FunctionStmt) (any, error) {
 	r.declare(stmt.Name)
 	r.define(stmt.Name)
@@ -65,6 +97,9 @@ func (r *Resolver) VisitReturnStmt(stmt *ast.ReturnStmt) (any, error) {
 	}
 
 	if stmt.Value != nil {
+		if r.currentFunction == FunctionTypeInitializer {
+			errors.Error(stmt.Keyword, "Can't return a value from an initializer.")
+		}
 		err := r.resolveExpr(stmt.Value)
 		if err != nil {
 			return nil, err
@@ -74,8 +109,8 @@ func (r *Resolver) VisitReturnStmt(stmt *ast.ReturnStmt) (any, error) {
 }
 
 func (r *Resolver) VisitWhileStmt(stmt *ast.WhileStmt) (any, error) {
-	enclosingLoop := r.currentLoop
-	r.currentLoop = LoopTypeWhile
+	enclosingLoop := r.inLoop
+	r.inLoop = true
 
 	err := r.resolveExpr(stmt.Condition)
 	if err != nil {
@@ -87,7 +122,7 @@ func (r *Resolver) VisitWhileStmt(stmt *ast.WhileStmt) (any, error) {
 		return nil, err
 	}
 
-	r.currentLoop = enclosingLoop
+	r.inLoop = enclosingLoop
 	return nil, nil
 }
 
@@ -96,7 +131,7 @@ func (r *Resolver) VisitExpressionStmt(stmt *ast.ExpressionStmt) (any, error) {
 }
 
 func (r *Resolver) VisitBreakStmt(stmt *ast.BreakStmt) (any, error) {
-	if r.currentLoop == LoopTypeNone {
+	if !r.inLoop {
 		errors.Error(stmt.Keyword, "Can't break outside loop")
 	}
 	return nil, nil

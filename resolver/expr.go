@@ -53,6 +53,10 @@ func (r *Resolver) VisitCallExpr(expr *ast.CallExpr) (any, error) {
 	return nil, nil
 }
 
+func (r *Resolver) VisitGetExpr(expr *ast.GetExpr) (any, error) {
+	return nil, r.resolveExpr(expr.Object)
+}
+
 func (r *Resolver) VisitGroupingExpr(expr *ast.GroupingExpr) (any, error) {
 	return nil, r.resolveExpr(expr.Expression)
 }
@@ -72,6 +76,23 @@ func (r *Resolver) VisitLogicalExpr(expr *ast.LogicalExpr) (any, error) {
 	}
 
 	return nil, r.resolveExpr(expr.Right)
+}
+
+func (r *Resolver) VisitSetExpr(expr *ast.SetExpr) (any, error) {
+	err := r.resolveExpr(expr.Value)
+	if err != nil {
+		return nil, err
+	}
+	return nil, r.resolveExpr(expr.Object)
+}
+
+func (r *Resolver) VisitThisExpr(expr *ast.ThisExpr) (any, error) {
+	if r.currentClass == ClassTypeNone {
+		errors.Error(expr.Keyword, "Can't use 'this' outside of a class.")
+	}
+
+	r.resolveLocal(expr, expr.Keyword)
+	return nil, nil
 }
 
 func (r *Resolver) VisitUnaryExpr(expr *ast.UnaryExpr) (any, error) {

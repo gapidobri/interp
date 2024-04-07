@@ -120,6 +120,18 @@ func (i *Interpreter) VisitCallExpr(expr *ast.CallExpr) (any, error) {
 	return function.call(i, arguments)
 }
 
+func (i *Interpreter) VisitGetExpr(expr *ast.GetExpr) (any, error) {
+	object, err := i.evaluate(expr.Object)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := object.(*Instance); ok {
+		return object.(*Instance).get(expr.Name)
+	}
+
+	return nil, errors.NewRuntimeError(expr.Name, "Only instances have properties.")
+}
+
 func (i *Interpreter) VisitGroupingExpr(expr *ast.GroupingExpr) (any, error) {
 	return i.evaluate(expr.Expression)
 }
@@ -149,6 +161,29 @@ func (i *Interpreter) VisitLogicalExpr(expr *ast.LogicalExpr) (any, error) {
 	}
 
 	return i.evaluate(expr.Right)
+}
+
+func (i *Interpreter) VisitSetExpr(expr *ast.SetExpr) (any, error) {
+	object, err := i.evaluate(expr.Object)
+	if err != nil {
+		return nil, err
+	}
+
+	instance, ok := object.(*Instance)
+	if !ok {
+		return nil, errors.NewRuntimeError(expr.Name, "Only instances have fields.")
+	}
+
+	value, err := i.evaluate(expr.Value)
+	if err != nil {
+		return nil, err
+	}
+	instance.set(expr.Name, value)
+	return value, nil
+}
+
+func (i *Interpreter) VisitThisExpr(expr *ast.ThisExpr) (any, error) {
+	return i.lookUpVariable(expr.Keyword, expr)
 }
 
 func (i *Interpreter) VisitUnaryExpr(expr *ast.UnaryExpr) (any, error) {

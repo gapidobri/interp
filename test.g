@@ -1,8 +1,8 @@
-fun test() {
-    var a = 1;
-    var b = 2;
-
-    print a;
+class Foo {
+  init() {
+    print this;
+  }
 }
 
-test();
+var foo = Foo();
+print foo.init();

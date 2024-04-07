@@ -3,14 +3,15 @@ package resolver
 type FunctionType string
 
 const (
-	FunctionTypeNone     FunctionType = "none"
-	FunctionTypeFunction FunctionType = "function"
-	FunctionTypeLambda   FunctionType = "lambda"
+	FunctionTypeNone        FunctionType = "none"
+	FunctionTypeFunction    FunctionType = "function"
+	FunctionTypeInitializer FunctionType = "initializer"
+	FunctionTypeMethod      FunctionType = "method"
 )
 
-type LoopType string
+type ClassType string
 
 const (
-	LoopTypeNone  LoopType = "none"
-	LoopTypeWhile LoopType = "while"
+	ClassTypeNone  ClassType = "none"
+	ClassTypeClass ClassType = "class"
 )

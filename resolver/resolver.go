@@ -12,14 +12,15 @@ type Resolver struct {
 	interpreter     *interpreter.Interpreter
 	scopes          stack[map[string]*varState]
 	currentFunction FunctionType
-	currentLoop     LoopType
+	currentClass    ClassType
+	inLoop          bool
 }
 
 func NewResolver(interpreter *interpreter.Interpreter) Resolver {
 	return Resolver{
 		interpreter:     interpreter,
 		currentFunction: FunctionTypeNone,
-		currentLoop:     LoopTypeNone,
+		currentClass:    ClassTypeNone,
 		scopes:          stack[map[string]*varState]{},
 	}
 }
@@ -71,7 +72,7 @@ func (r *Resolver) resolveFunction(function *ast.FunctionStmt, funcType Function
 
 func (r *Resolver) resolveLambda(lambda *ast.LambdaExpr) error {
 	enclosingFunction := r.currentFunction
-	r.currentFunction = FunctionTypeLambda
+	r.currentFunction = FunctionTypeFunction
 
 	r.beginScope()
 	for _, param := range lambda.Params {

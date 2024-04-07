@@ -40,6 +40,8 @@ func (p *Parser) declaration() (ast.Stmt, error) {
 		err       error
 	)
 	switch {
+	case p.match(Class):
+		statement, err = p.classDeclaration()
 	case p.match(Fun):
 		statement, err = p.function("function")
 	case p.match(Var):
@@ -52,6 +54,33 @@ func (p *Parser) declaration() (ast.Stmt, error) {
 		return nil, err
 	}
 	return statement, nil
+}
+
+func (p *Parser) classDeclaration() (ast.Stmt, error) {
+	name, err := p.consume(Identifier, "Expect class name.")
+	if err != nil {
+		return nil, err
+	}
+	_, err = p.consume(LeftBrace, "Expect '{' before class body.")
+	if err != nil {
+		return nil, err
+	}
+
+	var methods []*ast.FunctionStmt
+	for !p.check(RightBrace) && !p.isAtEnd() {
+		function, err := p.function("method")
+		if err != nil {
+			return nil, err
+		}
+		methods = append(methods, function)
+	}
+
+	_, err = p.consume(RightBrace, "Expect '}' after class body.")
+	if err != nil {
+		return nil, err
+	}
+
+	return ast.NewClassStmt(*name, methods), nil
 }
 
 func (p *Parser) statement() (ast.Stmt, error) {
@@ -347,9 +376,11 @@ func (p *Parser) assigment() (ast.Expr, error) {
 		if err != nil {
 			return nil, err
 		}
-
 		if variable, ok := exp.(*ast.VariableExpr); ok {
 			return ast.NewAssignExpr(variable.Name, value), nil
+		}
+		if get, ok := exp.(*ast.GetExpr); ok {
+			return ast.NewSetExpr(get.Object, get.Name, value), nil
 		}
 
 		return nil, p.error(equals, "Invalid assigment target.")
@@ -616,6 +647,12 @@ func (p *Parser) call() (ast.Expr, error) {
 			if err != nil {
 				return nil, err
 			}
+		} else if p.match(Dot) {
+			name, err := p.consume(Identifier, "Expect property name after '.'.")
+			if err != nil {
+				return nil, err
+			}
+			exp = ast.NewGetExpr(exp, *name)
 		} else {
 			break
 		}
@@ -636,6 +673,8 @@ func (p *Parser) primary() (ast.Expr, error) {
 		return ast.NewLiteralExpr(*p.previous().Literal), nil
 	case p.match(Fun):
 		return p.lambda()
+	case p.match(This):
+		return ast.NewThisExpr(p.previous()), nil
 	case p.match(Identifier):
 		return ast.NewVariableExpr(p.previous()), nil
 	case p.match(LeftParen):

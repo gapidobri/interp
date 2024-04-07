@@ -7,19 +7,23 @@ import (
 )
 
 type Function struct {
-	declaration *ast.FunctionStmt
-	closure     *environment.Environment
+	declaration   *ast.FunctionStmt
+	closure       *environment.Environment
+	isInitializer bool
 }
 
-func NewFunction(declaration *ast.FunctionStmt, closure *environment.Environment) Callable {
-	return Function{
-		declaration: declaration,
-		closure:     closure,
-	}
+func NewFunction(declaration *ast.FunctionStmt, closure *environment.Environment, isInitializer bool) *Function {
+	return &Function{declaration, closure, isInitializer}
+}
+
+func (f *Function) bind(instance *Instance) *Function {
+	env := environment.NewEnvironment(f.closure)
+	env.Define("this", instance)
+	return NewFunction(f.declaration, env, f.isInitializer)
 }
 
 //goland:noinspection GoTypeAssertionOnErrors
-func (f Function) call(interpreter *Interpreter, arguments []any) (any, error) {
+func (f *Function) call(interpreter *Interpreter, arguments []any) (any, error) {
 	env := environment.NewEnvironment(f.closure)
 	for i, param := range f.declaration.Params {
 		env.Define(param.Lexeme, arguments[i])
@@ -27,19 +31,27 @@ func (f Function) call(interpreter *Interpreter, arguments []any) (any, error) {
 
 	err := interpreter.executeBlock(f.declaration.Body, env)
 	if err != nil {
-		if returnValue, ok := err.(Return); ok {
-			return returnValue.Value, nil
+		returnValue, ok := err.(Return)
+		if !ok {
+			return nil, err
 		}
-		return nil, err
+		if f.isInitializer {
+			return f.closure.GetAt(0, "this"), nil
+		}
+		return returnValue.Value, nil
+	}
+
+	if f.isInitializer {
+		return f.closure.GetAt(0, "this"), nil
 	}
 
 	return nil, nil
 }
 
-func (f Function) arity() int {
+func (f *Function) arity() int {
 	return len(f.declaration.Params)
 }
 
-func (f Function) String() string {
+func (f *Function) String() string {
 	return fmt.Sprintf("<fn %s>", f.declaration.Name.Lexeme)
 }
