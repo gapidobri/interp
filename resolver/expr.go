@@ -1,10 +1,17 @@
 package resolver
 
-import "interp/ast"
+import (
+	"interp/ast"
+	"interp/errors"
+)
 
 func (r *Resolver) VisitVariableExpr(expr *ast.VariableExpr) (any, error) {
-	if r.scopes.isEmpty() && r.scopes.peek()[expr.Name.Lexeme] == false {
-		r.error(expr.Name, "Can't read local variable in its own initializer.")
+	scope, ok := r.scopes.peek()
+	if !ok {
+		return nil, nil
+	}
+	if scope[expr.Name.Lexeme].defined == false {
+		errors.Error(expr.Name, "Can't read local variable in its own initializer.")
 	}
 	r.resolveLocal(expr, expr.Name)
 	return nil, nil

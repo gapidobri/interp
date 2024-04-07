@@ -24,8 +24,12 @@ type ExpressionStmt struct {
 	Expression Expr
 }
 
-func (e ExpressionStmt) Accept(visitor stmtVisitor) (any, error) {
-	return visitor.VisitExpressionStmt(&e)
+func NewExpressionStmt(expression Expr) *ExpressionStmt {
+	return &ExpressionStmt{expression}
+}
+
+func (e *ExpressionStmt) Accept(visitor stmtVisitor) (any, error) {
+	return visitor.VisitExpressionStmt(e)
 }
 
 type FunctionStmt struct {
@@ -34,8 +38,12 @@ type FunctionStmt struct {
 	Body   []Stmt
 }
 
-func (f FunctionStmt) Accept(visitor stmtVisitor) (any, error) {
-	return visitor.VisitFunctionStmt(&f)
+func NewFunctionStmt(name token.Token, params []token.Token, body []Stmt) *FunctionStmt {
+	return &FunctionStmt{name, params, body}
+}
+
+func (f *FunctionStmt) Accept(visitor stmtVisitor) (any, error) {
+	return visitor.VisitFunctionStmt(f)
 }
 
 type IfStmt struct {
@@ -44,16 +52,24 @@ type IfStmt struct {
 	ElseBranch Stmt
 }
 
-func (i IfStmt) Accept(visitor stmtVisitor) (any, error) {
-	return visitor.VisitIfStmt(&i)
+func NewIfStmt(condition Expr, thenBranch Stmt, elseBranch Stmt) *IfStmt {
+	return &IfStmt{condition, thenBranch, elseBranch}
+}
+
+func (i *IfStmt) Accept(visitor stmtVisitor) (any, error) {
+	return visitor.VisitIfStmt(i)
 }
 
 type PrintStmt struct {
 	Expression Expr
 }
 
-func (p PrintStmt) Accept(visitor stmtVisitor) (any, error) {
-	return visitor.VisitPrintStmt(&p)
+func NewPrintStmt(expression Expr) *PrintStmt {
+	return &PrintStmt{expression}
+}
+
+func (p *PrintStmt) Accept(visitor stmtVisitor) (any, error) {
+	return visitor.VisitPrintStmt(p)
 }
 
 type ReturnStmt struct {
@@ -61,8 +77,12 @@ type ReturnStmt struct {
 	Value   Expr
 }
 
-func (r ReturnStmt) Accept(visitor stmtVisitor) (any, error) {
-	return visitor.VisitReturnStmt(&r)
+func NewReturnStmt(keyword token.Token, value Expr) *ReturnStmt {
+	return &ReturnStmt{keyword, value}
+}
+
+func (r *ReturnStmt) Accept(visitor stmtVisitor) (any, error) {
+	return visitor.VisitReturnStmt(r)
 }
 
 type VarStmt struct {
@@ -70,8 +90,12 @@ type VarStmt struct {
 	Initializer Expr
 }
 
-func (v VarStmt) Accept(visitor stmtVisitor) (any, error) {
-	return visitor.VisitVarStmt(&v)
+func NewVarStmt(name token.Token, initializer Expr) *VarStmt {
+	return &VarStmt{name, initializer}
+}
+
+func (v *VarStmt) Accept(visitor stmtVisitor) (any, error) {
+	return visitor.VisitVarStmt(v)
 }
 
 type WhileStmt struct {
@@ -79,22 +103,34 @@ type WhileStmt struct {
 	Body      Stmt
 }
 
-func (w WhileStmt) Accept(visitor stmtVisitor) (any, error) {
-	return visitor.VisitWhileStmt(&w)
+func NewWhileStmt(condition Expr, body Stmt) *WhileStmt {
+	return &WhileStmt{condition, body}
+}
+
+func (w *WhileStmt) Accept(visitor stmtVisitor) (any, error) {
+	return visitor.VisitWhileStmt(w)
 }
 
 type BlockStmt struct {
 	Statements []Stmt
 }
 
-func (b BlockStmt) Accept(visitor stmtVisitor) (any, error) {
-	return visitor.VisitBlockStmt(&b)
+func NewBlockStmt(statements []Stmt) *BlockStmt {
+	return &BlockStmt{statements}
+}
+
+func (b *BlockStmt) Accept(visitor stmtVisitor) (any, error) {
+	return visitor.VisitBlockStmt(b)
 }
 
 type BreakStmt struct {
 	Keyword token.Token
 }
 
-func (b BreakStmt) Accept(visitor stmtVisitor) (any, error) {
-	return visitor.VisitBreakStmt(&b)
+func NewBreakStmt(keyword token.Token) *BreakStmt {
+	return &BreakStmt{keyword}
+}
+
+func (b *BreakStmt) Accept(visitor stmtVisitor) (any, error) {
+	return visitor.VisitBreakStmt(b)
 }

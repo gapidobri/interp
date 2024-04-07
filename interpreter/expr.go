@@ -172,8 +172,8 @@ func (i *Interpreter) VisitVariableExpr(expr *ast.VariableExpr) (any, error) {
 }
 
 func (i *Interpreter) lookUpVariable(name token.Token, expr ast.Expr) (any, error) {
-	distance, ok := i.locals[expr]
-	if ok {
+	distance, found := i.locals[expr]
+	if found {
 		return i.environment.GetAt(distance, name.Lexeme), nil
 	} else {
 		return i.globals.Get(name)
@@ -186,8 +186,8 @@ func (i *Interpreter) VisitAssignExpr(expr *ast.AssignExpr) (any, error) {
 		return nil, err
 	}
 
-	distance, ok := i.locals[expr]
-	if ok {
+	distance, found := i.locals[expr]
+	if found {
 		i.environment.AssignAt(distance, expr.Name, value)
 	} else {
 		err = i.globals.Assign(expr.Name, value)

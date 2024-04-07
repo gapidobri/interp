@@ -1,6 +1,9 @@
 package resolver
 
-import "interp/ast"
+import (
+	"interp/ast"
+	"interp/errors"
+)
 
 func (r *Resolver) VisitBlockStmt(stmt *ast.BlockStmt) (any, error) {
 	r.beginScope()
@@ -16,7 +19,7 @@ func (r *Resolver) VisitFunctionStmt(stmt *ast.FunctionStmt) (any, error) {
 	r.declare(stmt.Name)
 	r.define(stmt.Name)
 
-	return nil, r.resolveFunction(stmt)
+	return nil, r.resolveFunction(stmt, FunctionTypeFunction)
 }
 
 func (r *Resolver) VisitIfStmt(stmt *ast.IfStmt) (any, error) {
@@ -57,6 +60,10 @@ func (r *Resolver) VisitPrintStmt(stmt *ast.PrintStmt) (any, error) {
 }
 
 func (r *Resolver) VisitReturnStmt(stmt *ast.ReturnStmt) (any, error) {
+	if r.currentFunction == FunctionTypeNone {
+		errors.Error(stmt.Keyword, "Can't return from top-level code.")
+	}
+
 	if stmt.Value != nil {
 		err := r.resolveExpr(stmt.Value)
 		if err != nil {
@@ -67,18 +74,30 @@ func (r *Resolver) VisitReturnStmt(stmt *ast.ReturnStmt) (any, error) {
 }
 
 func (r *Resolver) VisitWhileStmt(stmt *ast.WhileStmt) (any, error) {
+	enclosingLoop := r.currentLoop
+	r.currentLoop = LoopTypeWhile
+
 	err := r.resolveExpr(stmt.Condition)
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, r.resolveStmt(stmt.Body)
+	err = r.resolveStmt(stmt.Body)
+	if err != nil {
+		return nil, err
+	}
+
+	r.currentLoop = enclosingLoop
+	return nil, nil
 }
 
 func (r *Resolver) VisitExpressionStmt(stmt *ast.ExpressionStmt) (any, error) {
-	return nil, r.resolveStmt(stmt)
+	return nil, r.resolveExpr(stmt.Expression)
 }
 
 func (r *Resolver) VisitBreakStmt(stmt *ast.BreakStmt) (any, error) {
+	if r.currentLoop == LoopTypeNone {
+		errors.Error(stmt.Keyword, "Can't break outside loop")
+	}
 	return nil, nil
 }

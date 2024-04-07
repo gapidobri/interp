@@ -5,6 +5,7 @@ import (
 	"interp/errors"
 	"interp/interpreter"
 	"interp/parser"
+	"interp/resolver"
 	"interp/scanner"
 	"os"
 )
@@ -32,13 +33,20 @@ func main() {
 	if err, ok := err.(errors.SyntaxError); ok {
 		err.Print(&source)
 	}
+	if errors.HadError {
+		return
+	}
 
 	inter := interpreter.NewInterpreter()
 
-	//res := resolver.NewResolver(&inter)
-	//if err := res.Resolve(statements); err != nil {
-	//	fmt.Println(err)
-	//}
+	res := resolver.NewResolver(&inter)
+	if err := res.Resolve(statements); err != nil {
+		fmt.Println(err)
+	}
+
+	if errors.HadError {
+		return
+	}
 
 	err = inter.Interpret(statements)
 	if err, ok := err.(errors.RuntimeError); ok {
